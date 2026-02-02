@@ -308,9 +308,23 @@ async function performAuthDance () {
 function findMatchingPlaylists (text) {
   var outstanding = 0
 
-  function addItem (tbody, which, item, webUrl) {
+  // Accumulate all playlists across all pages, then sort/render once
+  var gatheredPlaylists = []
+  var gatheredTotal = null
+
+  function addItem (tbody, which, item) {
     if (!(item?.tracks)) {
       return // skip broken / unavailable playlists
+    }
+
+    // Web link (preferred) -> external_urls.spotify, else convert spotify:playlist: to open.spotify.com
+    var webUrl = '#'
+    if (item?.external_urls?.spotify) {
+      webUrl = item.external_urls.spotify
+    } else if (typeof item?.uri === 'string' && item.uri.indexOf('spotify:playlist:') === 0) {
+      webUrl = item.uri.replace(/^spotify:playlist:/, 'https://open.spotify.com/playlist/')
+    } else if (item?.id) {
+      webUrl = 'https://open.spotify.com/playlist/' + item.id
     }
 
     var tr = $("<tr>")
@@ -329,67 +343,82 @@ function findMatchingPlaylists (text) {
     tbody.append(tr)
   }
 
-  function showSearchResults (data) {
-    outstanding--
-
-    var matching = data.playlists.total > maxPlaylists ? ">"
-      + maxPlaylists : data.playlists.total
-    $("#matching").text(matching)
+  function finalizeAndRender () {
     var tbody = $("#playlist-items")
 
-    // collect usable items from this page
-    var pageItems = []
-    if (Array.isArray(data.playlists.items)) {
-      _.each(data.playlists.items, function (item) {
-        if (item && item.tracks && typeof item.tracks.total === 'number') {
-          pageItems.push(item)
-        }
-      })
-    }
-
-    // sort them by tracks.total descending
-    pageItems.sort(function (a, b) {
-      return (b.tracks.total || 0) - (a.tracks.total || 0)
+    // Global sort by number of tracks (descending)
+    gatheredPlaylists.sort(function (a, b) {
+      return (b?.tracks?.total || 0) - (a?.tracks?.total || 0)
     })
 
-    // display sorted items and still collect allPlaylists (owner,id)
-    var displayIndex = tbody.find("tr").length
-    _.each(pageItems, function (item) {
-      if (allPlaylists.length < maxPlaylistsToDisplay) {
-        displayIndex += 1
-        var webUrl = playlistWebUrl(item)
-        addItem(tbody, displayIndex, item, webUrl)
-      }
+    // Clear table + reset downstream state, then repopulate in sorted order
+    tbody.empty()
+    allPlaylists = []
+    totalTracks = 0
+
+    var displayCount = Math.min(gatheredPlaylists.length, maxPlaylistsToDisplay)
+    for (var i = 0; i < displayCount; i++) {
+      var item = gatheredPlaylists[i]
+      addItem(tbody, i + 1, item)
+
+      // Keep collecting for track fetching
       if (allPlaylists.length < maxPlaylists) {
         if (item?.tracks?.total) {
           allPlaylists.push([item?.owner?.id || '', item?.id || ''])
           totalTracks += item?.tracks?.total || 0
         }
       }
-    })
-
-    var totalPlaylists = allPlaylists.length
-    var total = Math.min(data.playlists.total, maxPlaylists)
-    var percentComplete = Math.round(totalPlaylists * 100 / total)
+    }
 
     $(".total-tracks").text(totalTracks)
-    $(".total-playlists").text(totalPlaylists)
+    $(".total-playlists").text(allPlaylists.length)
+
+    if (allPlaylists.length > 0) {
+      $('#fetch-tracks-ready').show(200)
+    } else {
+      info("No matching playlists found")
+      $('#fetch-tracks-ready').show(200)
+    }
+  }
+
+  function showSearchResults (data) {
+    outstanding--
+
+    if (gatheredTotal === null) {
+      gatheredTotal = Math.min(data.playlists.total, maxPlaylists)
+    }
+
+    var matching = data.playlists.total > maxPlaylists ? ">" + maxPlaylists : data.playlists.total
+    $("#matching").text(matching)
+
+    // Collect usable items from this page
+    if (Array.isArray(data.playlists.items)) {
+      _.each(data.playlists.items, function (item) {
+        if (item && item.tracks && typeof item.tracks.total === 'number') {
+          gatheredPlaylists.push(item)
+        }
+      })
+    }
+
+    // Update progress based on how many we have gathered so far
+    var collected = Math.min(gatheredPlaylists.length, gatheredTotal || gatheredPlaylists.length)
+    var percentComplete = gatheredTotal ? Math.round(collected * 100 / gatheredTotal) : 0
     $("#playlist-progress").css('width', percentComplete + "%")
 
-    if (abortFetching || outstanding == 0) {
+    // When all requests complete (or user aborts), render once globally sorted
+    if (abortFetching || outstanding === 0) {
       abortFetching = false
-      if (totalPlaylists > 0) {
-        $('#fetch-tracks-ready').show(200)
-      } else {
-        info("No matching playlists found")
-        $('#fetch-tracks-ready').show(200)
-      }
+      finalizeAndRender()
     }
   }
 
   function processPlaylistError () {
     outstanding--
     error("Can't get playlists")
+    if (abortFetching || outstanding === 0) {
+      abortFetching = false
+      finalizeAndRender()
+    }
   }
 
   function processPlaylists (data) {
@@ -409,9 +438,12 @@ function findMatchingPlaylists (text) {
     showSearchResults(data)
   }
 
+  // Reset state
   totalTracks = 0
   abortFetching = false
   allPlaylists = []
+  gatheredPlaylists = []
+  gatheredTotal = null
   $('#fetch-tracks-ready').hide()
 
   var url = 'https://api.spotify.com/v1/search'
@@ -421,9 +453,12 @@ function findMatchingPlaylists (text) {
     limit: 50
   }
   $("#playlist-items").empty()
+  $("#playlist-progress").css('width', "0%")
+
   outstanding++
   callSpotify(url, params).then(processPlaylists, processPlaylistError)
 }
+
 
 function go () {
   $("#top").hide(200)
