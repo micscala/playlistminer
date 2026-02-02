@@ -293,9 +293,9 @@ function findMatchingPlaylists (text) {
   var outstanding = 0
 
   function addItem (tbody, which, item) {
-    /* if (!item || !item.uri || !item.name || !item.tracks) {
+    if (!item?.tracks) {
       return // skip broken / unavailable playlists
-    } */
+    }
 
     var tr = $("<tr>")
     var rowNumber = $("<td>").text(which)
