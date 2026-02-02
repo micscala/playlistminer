@@ -301,9 +301,9 @@ function findMatchingPlaylists (text) {
     var rowNumber = $("<td>").text(which)
     var title = $("<td>").append(
       $("<a>")
-        .attr('href', item?.uri )
+        .attr('href', item?.uri)
         .attr('target', '_blank')
-        .text(item.name)
+        .text(item?.name)
     )
     var tracks = $("<td>").text(item.tracks.total)
 
@@ -321,16 +321,16 @@ function findMatchingPlaylists (text) {
     $("#matching").text(matching)
     var tbody = $("#playlist-items")
     _.each(data.playlists.items, function (item, which) {
-      if (true || !item.collaborative) {
-        if (allPlaylists.length < maxPlaylistsToDisplay) {
-          addItem(tbody, data.playlists.offset + which + 1, item)
-        }
-        if (allPlaylists.length < maxPlaylists) {
-          allPlaylists.push([item?.owner?.id, item.id])
-          totalTracks += item.tracks.total
-        }
-      } else {
+      // if (true || !item.collaborative) {
+      if (allPlaylists.length < maxPlaylistsToDisplay) {
+        addItem(tbody, data.playlists.offset + which + 1, item)
       }
+      if (allPlaylists.length < maxPlaylists) {
+        allPlaylists.push([item?.owner?.id, item.id])
+        totalTracks += item.tracks.total
+      }
+      //} else {
+      // }
     })
 
     var totalPlaylists = allPlaylists.length
