@@ -293,9 +293,9 @@ function findMatchingPlaylists (text) {
   var outstanding = 0
 
   function addItem (tbody, which, item) {
-    /* if (!item || !item.tracks) {
+    if (!(item?.tracks)) {
       return // skip broken / unavailable playlists
-    } */
+    }
 
     var tr = $("<tr>")
     var rowNumber = $("<td>").text(which)
@@ -326,8 +326,10 @@ function findMatchingPlaylists (text) {
         addItem(tbody, data.playlists.offset + which + 1, item)
       }
       if (allPlaylists.length < maxPlaylists) {
-        if (item?.tracks?.total) allPlaylists.push([item?.owner?.id || '', item?.id || ''])
-        totalTracks += item?.tracks?.total || 0
+        if (item?.tracks?.total) {
+          allPlaylists.push([item?.owner?.id || '', item?.id || ''])
+          totalTracks += item?.tracks?.total || 0
+        }
       }
       //} else {
       // }
