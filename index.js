@@ -326,7 +326,7 @@ function findMatchingPlaylists (text) {
         addItem(tbody, data.playlists.offset + which + 1, item)
       }
       if (allPlaylists.length < maxPlaylists) {
-        allPlaylists.push([item?.owner?.id, item.id])
+        allPlaylists.push([item?.owner?.id, item?.id])
         totalTracks += item.tracks.total
       }
       //} else {
