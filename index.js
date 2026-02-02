@@ -293,15 +293,15 @@ function findMatchingPlaylists (text) {
   var outstanding = 0
 
   function addItem (tbody, which, item) {
-    if (!item || !item.uri || !item.name || !item.tracks) {
+    /* if (!item || !item.uri || !item.name || !item.tracks) {
       return // skip broken / unavailable playlists
-    }
+    } */
 
     var tr = $("<tr>")
     var rowNumber = $("<td>").text(which)
     var title = $("<td>").append(
       $("<a>")
-        .attr('href', item.uri)
+        .attr('href', item?.uri )
         .attr('target', '_blank')
         .text(item.name)
     )
@@ -326,7 +326,7 @@ function findMatchingPlaylists (text) {
           addItem(tbody, data.playlists.offset + which + 1, item)
         }
         if (allPlaylists.length < maxPlaylists) {
-          allPlaylists.push([item.owner.id, item.id])
+          allPlaylists.push([item?.owner?.id, item.id])
           totalTracks += item.tracks.total
         }
       } else {
