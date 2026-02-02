@@ -79,6 +79,22 @@ function postSpotify (url, json, callback) {
 }
 
 // =====================
+// Small playlist helper (convert to web URL)
+// =====================
+function playlistWebUrl (item) {
+  if (!item) return '#'
+  // Prefer external_urls.spotify if available
+  if (item.external_urls && item.external_urls.spotify) return item.external_urls.spotify
+  // If item.uri is like spotify:playlist:<id>, convert it
+  if (item.uri && typeof item.uri === 'string' && item.uri.indexOf('spotify:playlist:') === 0) {
+    return item.uri.replace(/^spotify:playlist:/, 'https://open.spotify.com/playlist/')
+  }
+  // fallback to constructing from id
+  if (item.id) return 'https://open.spotify.com/playlist/' + item.id
+  return '#'
+}
+
+// =====================
 // Spotify PKCE Auth (SPA)
 // =====================
 
@@ -286,13 +302,13 @@ async function performAuthDance () {
 }
 
 // =====================
-// App logic (unchanged)
+// App logic (unchanged except sorting and web links)
 // =====================
 
 function findMatchingPlaylists (text) {
   var outstanding = 0
 
-  function addItem (tbody, which, item) {
+  function addItem (tbody, which, item, webUrl) {
     if (!(item?.tracks)) {
       return // skip broken / unavailable playlists
     }
@@ -301,7 +317,7 @@ function findMatchingPlaylists (text) {
     var rowNumber = $("<td>").text(which)
     var title = $("<td>").append(
       $("<a>")
-        .attr('href', item?.uri)
+        .attr('href', webUrl)
         .attr('target', '_blank')
         .text(item?.name)
     )
@@ -320,10 +336,29 @@ function findMatchingPlaylists (text) {
       + maxPlaylists : data.playlists.total
     $("#matching").text(matching)
     var tbody = $("#playlist-items")
-    _.each(data.playlists.items, function (item, which) {
-      // if (true || !item.collaborative) {
+
+    // collect usable items from this page
+    var pageItems = []
+    if (Array.isArray(data.playlists.items)) {
+      _.each(data.playlists.items, function (item) {
+        if (item && item.tracks && typeof item.tracks.total === 'number') {
+          pageItems.push(item)
+        }
+      })
+    }
+
+    // sort them by tracks.total descending
+    pageItems.sort(function (a, b) {
+      return (b.tracks.total || 0) - (a.tracks.total || 0)
+    })
+
+    // display sorted items and still collect allPlaylists (owner,id)
+    var displayIndex = tbody.find("tr").length
+    _.each(pageItems, function (item) {
       if (allPlaylists.length < maxPlaylistsToDisplay) {
-        addItem(tbody, data.playlists.offset + which + 1, item)
+        displayIndex += 1
+        var webUrl = playlistWebUrl(item)
+        addItem(tbody, displayIndex, item, webUrl)
       }
       if (allPlaylists.length < maxPlaylists) {
         if (item?.tracks?.total) {
@@ -331,8 +366,6 @@ function findMatchingPlaylists (text) {
           totalTracks += item?.tracks?.total || 0
         }
       }
-      //} else {
-      // }
     })
 
     var totalPlaylists = allPlaylists.length
