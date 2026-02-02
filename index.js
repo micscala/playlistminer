@@ -293,14 +293,23 @@ function findMatchingPlaylists (text) {
   var outstanding = 0
 
   function addItem (tbody, which, item) {
+    if (!item || !item.uri || !item.name || !item.tracks) {
+      return // skip broken / unavailable playlists
+    }
+
     var tr = $("<tr>")
     var rowNumber = $("<td>").text(which)
-    var title = $("<td>").append($("<a>").attr('href', item.uri).text(item.name))
+    var title = $("<td>").append(
+      $("<a>")
+        .attr('href', item.uri)
+        .attr('target', '_blank')
+        .text(item.name)
+    )
     var tracks = $("<td>").text(item.tracks.total)
+
     tr.append(rowNumber)
     tr.append(title)
     tr.append(tracks)
-    $("#playlist-item").append(tr)
     tbody.append(tr)
   }
 
